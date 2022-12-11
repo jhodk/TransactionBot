@@ -19,15 +19,17 @@ startBot();
 async function startBot() {
     await TransactionBot.login(config.discord_bot_token);
     console.log("Transaction bot logged in");
-    let user = await TransactionBot.users.fetch(config.discordUser.id);
-    user.send("Transaction bot restarted");
+    let discordUser = await TransactionBot.users.fetch(config.adminDiscordUser.discord_user_id);
+    discordUser.send("Transaction bot restarted");
     transactionPollingTimer = setInterval(transactionsLoop, 1000*60*15);
     transactionsLoop();
 }
 
 async function transactionsLoop() {
     for(user of config.users) {
+        console.log("begin "+user.name);
         for(bank_account of user.bank_accounts) {
+            console.log("begin bank account "+bank_account.name)
             let transactions = await APIGetBankAccountTransactions(user, bank_account);
 
             if(!transactions || transactions.error) {
@@ -44,9 +46,11 @@ async function transactionsLoop() {
             else{
                 await handleBankAccountTransactions(transactions, user, bank_account);
             }
+            console.log("finished bank account "+bank_account.name)
         }
 
         for(credit_card of user.credit_cards) {
+            console.log("begin credit card "+credit_card.name)
             let transactions = await APIGetCreditCardTransactions(user, credit_card);
 
             if(!transactions || transactions.error) {
@@ -63,6 +67,7 @@ async function transactionsLoop() {
             else{
                 await handleCreditCardTransactions(transactions, user, credit_card);
             }
+            console.log("finished credit card "+credit_card.name)
         }
         
     }
@@ -124,6 +129,7 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
 }
 
 async function sendTransactionMessage(transaction,user) {
+    console.log(transaction);
     const colours = ["#992d22","#F1C40F", "#E91E63", "#2ECC71", "#E67E22", "#3498DB", "#9B59B6"];
     let chosenColor = colours[moment(transaction.timestamp.substring(0,10)).day()];
     let num = -Number.parseFloat(transaction.amount);
@@ -132,29 +138,35 @@ async function sendTransactionMessage(transaction,user) {
     const embedMessage = new EmbedBuilder().setTitle("£"+amount.toString())
     .setAuthor({name: date})
     .setColor(chosenColor)
-    .setDescription(transaction.meta.provider_reference.substring(0,18).trim()+"\n"+transaction.meta.provider_reference.substring(18).trim());
+    .setDescription(transaction.description.substring(0,18).trim()+"\n"+transaction.description.substring(18).trim());
     user.send({embeds: [embedMessage]});
 }
 
 async function APIRefreshToken(user) {
+    console.log("refreshing token for user "+user.name)
+    console.log(user);
     const url = `https://auth.truelayer.com/connect/token`;
     const options = {
       method: "POST",
       headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
       body: JSON.stringify({
         grant_type: 'refresh_token',
-        app_client_id: config.truelayer.app_client_id,
-        app_client_secret: config.truelayer.app_client_secret,
+        client_id: config.truelayer.app_client_id,
+        client_secret: config.truelayer.app_client_secret,
         refresh_token: user.truelayer.refresh_token
       })
     };
+    console.log(config.truelayer.app_client_id);
+    console.log(config.truelayer.app_client_secret);
+    console.log(user.truelayer.refresh_token);
     let result = await fetch(url, options);
     result = await result.json();
+    console.log(result);
     if(result.error){
         console.log("ERROR: "+result.error);
-        let user = await TransactionBot.users.fetch(user.discord_user_id);
-        user.send("Access token has expired. Please visit this link and send new authorisation code to admin.");
-        user.send(`https://auth.truelayer.com/?response_type=code&client_id=${config.truelayer.app_client_id}&scope=info%20accounts%20balance%20cards%20transactions%20direct_debits%20standing_orders%20offline_access&redirect_uri=https://console.truelayer.com/redirect-page&providers=uk-ob-all%20uk-oauth-all`);
+        let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
+        discordUser.send("Access token has expired. Please visit this link and send new authorisation code to admin.");
+        discordUser.send(`https://auth.truelayer.com/?response_type=code&client_id=${config.truelayer.app_client_id}&scope=info%20accounts%20balance%20cards%20transactions%20direct_debits%20standing_orders%20offline_access&redirect_uri=https://console.truelayer.com/redirect-page&providers=uk-ob-all%20uk-oauth-all`);
         //TODO - implement bot interpretation of this code to update user credentials 
         return false;
     }
@@ -181,7 +193,7 @@ async function APIGetBankAccountTransactions(user, bank_account) {
 
 async function APIGetCreditCardTransactions(user, credit_card) {
     const nowDate = moment().format("YYYY-MM-DD")+"T00:00:00Z"; // bank data only had granularity of 1 day. Shows correct date in splitwise UI, although timestamp shown on hover may be previous day 11pm due to time zones
-    const url = `https://api.truelayer.com/data/v1/cards/${credit_card.credit_card_id}/transactions?from=${encodeURIComponent(bank_account.last_transaction_date)}&to=${encodeURIComponent(nowDate)}`;
+    const url = `https://api.truelayer.com/data/v1/cards/${credit_card.credit_card_id}/transactions?from=${encodeURIComponent(credit_card.last_transaction_date)}&to=${encodeURIComponent(nowDate)}`;
     const options = {
       method: 'GET',
       headers: {Accept: 'application/json',
@@ -211,6 +223,9 @@ async function getBalance() {
 
 //handle reactions to messages
 TransactionBot.on('messageReactionAdd', async (reaction, user) => {
+    if(user.id !== TransactionBot.user.id) {
+        console.log("message reaction from user "+config.users.find(u => u.discord_user_id == user.id).name)
+    }
     if(user.id !== TransactionBot.user.id && config.users.find(u => u.discord_user_id == user.id) != undefined) {
         if(reaction.partial) {
             try{
@@ -277,8 +292,8 @@ async function APISplitwiseEntry(cost, description, datetime, user) {
     //console.log(result);
     if(result.error){
         console.log("ERROR: "+result.error);
-        let user = await TransactionBot.users.fetch(user.discord_user_id);
-        user.send("There was an error creating the splitwise expense.");
+        let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
+        discordUser.send("There was an error creating the splitwise expense.");
         return false;
     }
     return true;
