@@ -1,0 +1,59 @@
+{
+  "discord_bot_token": "",
+  "truelayer": {
+    "app_client_id": "",
+    "app_client_IP": "",
+    "app_client_secret": ""
+  },
+  "users": [
+    {
+      "name": "user1",
+      "discord_user_id": "",
+      "splitwise_API_token": "",
+      "splitwise_group_id": "",
+      "truelayer": {
+        "access_token": "",
+        "refresh_token": ""
+      },
+      "bank_accounts": [
+        {
+          "name": "",
+          "bank_account_id": "",
+          "last_transaction_date": "2022-12-01T00:00:00Z",
+          "last_transaction_id": ""
+        }
+      ],
+      "credit_cards": []
+    },
+    {
+      "name": "user2",
+      "discord_user_id": "",
+      "splitwise_API_token": "",
+      "splitwise_group_id": "",
+      "truelayer": {
+        "access_token": "",
+        "refresh_token": ""
+      },
+      "bank_accounts": [
+        {
+          "name": "",
+          "bank_account_id": "",
+          "last_transaction_date": "2022-12-11T00:00:00Z",
+          "last_transaction_id": ""
+        }
+      ],
+      "credit_cards": [
+        {
+          "name": "",
+          "credit_card_id": "",
+          "last_transaction_date": "",
+          "last_transaction_id": ""
+        }
+      ]
+    }
+  ],
+  "adminDiscordUser": {
+    "discord_user_id": "",
+    "dmChannel": ""
+  }
+}
