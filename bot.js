@@ -19,6 +19,10 @@ startBot();
 async function startBot() {
     await TransactionBot.login(config.discord_bot_token);
     console.log("Transaction bot logged in");
+    //cache user dm channels so that reactions will fire an event
+    for(const user of config.users) {
+        const tmp = await TransactionBot.users.fetch(user.discord_user_id);
+    }
     let discordUser = await TransactionBot.users.fetch(config.adminDiscordUser.discord_user_id);
     discordUser.send("Transaction bot restarted");
     transactionPollingTimer = setInterval(transactionsLoop, 1000*60*15);
@@ -26,9 +30,9 @@ async function startBot() {
 }
 
 async function transactionsLoop() {
-    for(user of config.users) {
+    for(const user of config.users) {
         console.log("begin "+user.name);
-        for(bank_account of user.bank_accounts) {
+        for(const bank_account of user.bank_accounts) {
             console.log("begin bank account "+bank_account.name)
             let transactions = await APIGetBankAccountTransactions(user, bank_account);
 
@@ -49,7 +53,7 @@ async function transactionsLoop() {
             console.log("finished bank account "+bank_account.name)
         }
 
-        for(credit_card of user.credit_cards) {
+        for(const credit_card of user.credit_cards) {
             console.log("begin credit card "+credit_card.name)
             let transactions = await APIGetCreditCardTransactions(user, credit_card);
 
