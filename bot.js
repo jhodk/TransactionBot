@@ -31,53 +31,57 @@ async function startBot() {
 
 async function transactionsLoop() {
     for(const user of config.users) {
-        console.log("begin "+user.name);
-        for(const bank_account of user.bank_accounts) {
-            console.log("begin bank account "+bank_account.name)
-            let transactions = await APIGetBankAccountTransactions(user, bank_account);
-
-            if(!transactions || transactions.error) {
-                console.log("error getting transaction, refreshing token...");
-                let success = await APIRefreshToken(user);
-                if(!success){
-                    console.log("Error with access token. Prompted user to generate new code");
-                }
-                else{
-                    transactions = await APIGetBankAccountTransactions(user, bank_account);
-                    await handleBankAccountTransactions(transactions, user, bank_account);
-                }
-            }
-            else{
-                await handleBankAccountTransactions(transactions, user, bank_account);
-            }
-            console.log("finished bank account "+bank_account.name)
-        }
-
-        for(const credit_card of user.credit_cards) {
-            console.log("begin credit card "+credit_card.name)
-            let transactions = await APIGetCreditCardTransactions(user, credit_card);
-
-            if(!transactions || transactions.error) {
-                console.log("error getting transaction, refreshing token...");
-                let success = await APIRefreshToken(user);
-                if(!success){
-                    console.log("Error with access token. Prompted user to generate new code");
-                }
-                else{
-                    transactions = await APIGetCreditCardTransactions(user, credit_card);
-                    await handleCreditCardTransactions(transactions, user, credit_card);
-                }
-            }
-            else{
-                await handleCreditCardTransactions(transactions, user, credit_card);
-            }
-            console.log("finished credit card "+credit_card.name)
-        }
-        
+        updateUserTransactions(user);
     }
 }
 
+async function updateUserTransactions(user) {
+  for(const bank_account of user.bank_accounts) {
+    let transactions = await APIGetBankAccountTransactions(user, bank_account);
+
+    if(!transactions || transactions.error) {
+        console.log(transactions.error);
+        console.log(`error getting transaction for user ${user.name}, refreshing token...`);
+        let success = await APIRefreshToken(user);
+        if(!success){
+            console.log(`Error with access token. Prompted user ${user.name} to generate new code`);
+        }
+        else{
+            transactions = await APIGetBankAccountTransactions(user, bank_account);
+            await handleBankAccountTransactions(transactions, user, bank_account);
+        }
+    }
+    else{
+        await handleBankAccountTransactions(transactions, user, bank_account);
+    }
+  }
+
+  for(const credit_card of user.credit_cards) {
+      let transactions = await APIGetCreditCardTransactions(user, credit_card);
+
+      if(!transactions || transactions.error) {
+          console.log(`error getting transaction for user ${user.name}, refreshing token...`);
+          let success = await APIRefreshToken(user);
+          if(!success){
+              console.log(`Error with access token. Prompted user ${user.name} to generate new code`);
+          }
+          else{
+              transactions = await APIGetCreditCardTransactions(user, credit_card);
+              await handleCreditCardTransactions(transactions, user, credit_card);
+          }
+      }
+      else{
+          await handleCreditCardTransactions(transactions, user, credit_card);
+      }
+  }
+}
+
 async function handleBankAccountTransactions(transactionsObj, user, bank_account) {
+    if(!transactionsObj.results) {
+        console.log(`Bank Account Transactions API returned unexpected format for user ${user.name} and bank account ${bank_account.name}:`);
+        console.log(transactionsObj);
+        return;
+    }
     if(transactionsObj.results.length == 0){
         return;
     }
@@ -90,7 +94,6 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
         console.log("Could not find last transaction id. Assuming all transactions are new.");
     }
     if(transactions.length == 0){
-        console.log("no new transactions");
         return;
     }
     transactions.reverse();
@@ -105,6 +108,11 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
 }
 
 async function handleCreditCardTransactions(transactionsObj, user, credit_card) {
+    if(!transactionsObj.results) {
+        console.log(`Credit Card Transactions API returned unexpected format for user ${user.name} and credit card ${bank_account.name}:`);
+        console.log(transactionsObj);
+        return;
+    }
     if(transactionsObj.results.length == 0){
         return;
     }
@@ -117,7 +125,6 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
         console.log("Could not find last transaction id. Assuming all transactions are new.");
     }
     if(transactions.length == 0){
-        console.log("no new transactions");
         return;
     }
     transactions.reverse();
@@ -133,7 +140,6 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
 }
 
 async function sendTransactionMessage(transaction,user) {
-    console.log(transaction);
     const colours = ["#992d22","#F1C40F", "#E91E63", "#2ECC71", "#E67E22", "#3498DB", "#9B59B6"];
     let chosenColor = colours[moment(transaction.timestamp.substring(0,10)).day()];
     let num = -Number.parseFloat(transaction.amount);
@@ -147,8 +153,6 @@ async function sendTransactionMessage(transaction,user) {
 }
 
 async function APIRefreshToken(user) {
-    console.log("refreshing token for user "+user.name)
-    console.log(user);
     const url = `https://auth.truelayer.com/connect/token`;
     const options = {
       method: "POST",
@@ -160,23 +164,47 @@ async function APIRefreshToken(user) {
         refresh_token: user.truelayer.refresh_token
       })
     };
-    console.log(config.truelayer.app_client_id);
-    console.log(config.truelayer.app_client_secret);
-    console.log(user.truelayer.refresh_token);
+
     let result = await fetch(url, options);
     result = await result.json();
-    console.log(result);
-    if(result.error){
+    if(result.error) {
         console.log("ERROR: "+result.error);
         let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
-        discordUser.send("Access token has expired. Please visit this link and send new authorisation code to admin.");
+        discordUser.send("Access token has expired. Please visit this link to get new authorisation code. Send the code as a message then react to the code with the 🔑 emoji.");
         discordUser.send(`https://auth.truelayer.com/?response_type=code&client_id=${config.truelayer.app_client_id}&scope=info%20accounts%20balance%20cards%20transactions%20direct_debits%20standing_orders%20offline_access&redirect_uri=https://console.truelayer.com/redirect-page&providers=uk-ob-all%20uk-oauth-all`);
-        //TODO - implement bot interpretation of this code to update user credentials 
         return false;
     }
     config.users.find(u => u.discord_user_id == user.discord_user_id).truelayer.access_token = result.access_token;
     fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
-    console.log("refreshed token");
+    return true;
+}
+
+async function APIExchangeCodeForAccessToken(code, user) {
+    const url = `https://auth.truelayer.com/connect/token`;
+    const options = {
+      method: 'POST',
+      headers: {accept: 'application/json', 'content-type': 'application/json'},
+      body: JSON.stringify({
+          grant_type: 'authorization_code',
+          client_id: config.truelayer.app_client_id,
+          client_secret: config.truelayer.app_client_secret,
+          code: code,
+          redirect_uri: 'https://console.truelayer.com/redirect-page'
+      })
+    };
+
+    let result = await fetch(url, options);
+    result = await result.json();
+
+    if(result.error) {
+      console.log("ERROR exchanging code for token: "+result.error);
+      return false;
+    }
+
+    const configUser = user;
+    configUser.truelayer.access_token = result.access_token;
+    configUser.truelayer.refresh_token = result.refresh_token;
+    fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
     return true;
 }
 
@@ -227,9 +255,6 @@ async function getBalance() {
 
 //handle reactions to messages
 TransactionBot.on('messageReactionAdd', async (reaction, user) => {
-    if(user.id !== TransactionBot.user.id) {
-        console.log("message reaction from user "+config.users.find(u => u.discord_user_id == user.id).name)
-    }
     if(user.id !== TransactionBot.user.id && config.users.find(u => u.discord_user_id == user.id) != undefined) {
         if(reaction.partial) {
             try{
@@ -245,12 +270,29 @@ TransactionBot.on('messageReactionAdd', async (reaction, user) => {
                 reaction.message.delete();
             }
             else if(reaction.emoji.name == "🤑" && reaction.message.embeds){
-                await makeSplitwiseEntry(reaction.message, config.users.find(u => u.discord_user_id == user.id));
-                reaction.message.react("✅");
+                const success = await makeSplitwiseEntry(reaction.message, config.users.find(u => u.discord_user_id == user.id));
+                if(success) {
+                    reaction.message.react("✅");
+                }
+                else {
+                    reaction.message.react("⚠");
+                }
             }
             else if(reaction.emoji.name == "🔥"){
                reaction.message.reactions.cache.filter(reaction => reaction.users.remove(TransactionBot.user.id));
             }
+        }
+        else {
+          if(reaction.emoji.name == "🔑") {
+            const newCode = reaction.message.content;
+            user.send(`Requesting access using code: ${newCode}`);
+            const success = await APIExchangeCodeForAccessToken(newCode, config.users.find(u => u.discord_user_id === user.id));
+            user.send(`${success ? "Success!" : "That didn't work. Try generating a new code in case it timed out or contact admin."}`);
+            
+            if(success) {
+              updateUserTransactions(config.users.find(u => u.discord_user_id === user.id));
+            }
+        }
         }
     }
 });
@@ -258,9 +300,6 @@ TransactionBot.on('messageReactionAdd', async (reaction, user) => {
 async function makeSplitwiseEntry(message, user) {
     if(message.embeds[0]){
         message = message.embeds[0];
-        // console.log(message.data.author.name); //date
-        // console.log(message.data.description); //description
-        // console.log(message.data.title); //cost £xxxxx
         const dateArr = message.data.author.name.split(" "); //Monday 22nd Aug 2022
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         let day = dateArr[1].substring(0,dateArr[1].length-2);
@@ -271,7 +310,7 @@ async function makeSplitwiseEntry(message, user) {
         let datetime = `${day}/${month}/${year} 00:00:00`;
         let cost = message.data.title.substring(1);
         let description = message.data.description.replace("\n","/");
-        await APISplitwiseEntry(cost, description, datetime, user);
+        return await APISplitwiseEntry(cost, description, datetime, user);
     }
 }
 
@@ -293,7 +332,7 @@ async function APISplitwiseEntry(cost, description, datetime, user) {
     };
     let result = await fetch(url, options);
     result = await result.json();
-    //console.log(result);
+
     if(result.error){
         console.log("ERROR: "+result.error);
         let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
