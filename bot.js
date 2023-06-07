@@ -108,7 +108,7 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
     const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
     bank_account.latest_transaction_ids.push(...newTransactionIdsToRemember);
 
-    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? 1 : -1);
+    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? -1 : 1);
 
     let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
     discordUser.send("===="+bank_account.name+"====\nNew transactions added!")
@@ -151,7 +151,7 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
     const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
     credit_card.latest_transaction_ids.push(...newTransactionIdsToRemember);
 
-    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? 1 : -1);
+    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? -1 : 1);
     
     let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
     discordUser.send("===="+credit_card.name+"====\nNew transactions added!")
