@@ -86,30 +86,42 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
         return;
     }
     const transactions = Array.from(transactionsObj.results);
-    const lastTransactionIndex = transactions.findIndex((element) => element.transaction_id === bank_account.last_transaction_id);
-    if(lastTransactionIndex > -1) {
-        transactions.splice(lastTransactionIndex);
-    }
-    else {
-        console.log("Could not find last transaction id. Assuming all transactions are new.");
-    }
-    if(transactions.length == 0){
+
+    // ignore transactions that are already known
+    const newTransactions = transactions.filter(transaction => !bank_account.latest_transaction_ids.includes(transaction.transaction_id));
+
+    if(newTransactions.length == 0){
         return;
     }
-    transactions.reverse();
+
+    const latestTimestamp = newTransactions.reduce((memo, next) => 
+        new Date(next.timestamp) > new Date(memo.timestamp) ? next : memo
+    ).timestamp;
+
+    // clear stored transaction ids if there is a new latest timestamp (assume we don't get transactions from a previous day)
+    if(new Date(bank_account.last_transaction_date) < new Date(latestTimestamp)) {
+        bank_account.latest_transaction_ids = [];
+        bank_account.last_transaction_date = latestTimestamp;
+    }
+
+    // add transaction ids which match the latest timestamp to the stored array
+    const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
+    bank_account.latest_transaction_ids.push(...newTransactionIdsToRemember);
+
+    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? 1 : -1);
+
     let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
     discordUser.send("===="+bank_account.name+"====\nNew transactions added!")
-    for(let transaction of transactions){
+    for(let transaction of newTransactions){
         await sendTransactionMessage(transaction,discordUser);
     }
-    config.users.find(u => u.discord_user_id === user.discord_user_id).bank_accounts.find(b => b.bank_account_id === bank_account.bank_account_id).last_transaction_date = transactions[transactions.length-1].timestamp;
-    config.users.find(u => u.discord_user_id === user.discord_user_id).bank_accounts.find(b => b.bank_account_id === bank_account.bank_account_id).last_transaction_id = transactions[transactions.length-1].transaction_id;
+    
     fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
 }
 
 async function handleCreditCardTransactions(transactionsObj, user, credit_card) {
     if(!transactionsObj.results) {
-        console.log(`Credit Card Transactions API returned unexpected format for user ${user.name} and credit card ${bank_account.name}:`);
+        console.log(`Credit Card Transactions API returned unexpected format for user ${user.name} and credit card ${credit_card.name}:`);
         console.log(transactionsObj);
         return;
     }
@@ -117,25 +129,37 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
         return;
     }
     const transactions = Array.from(transactionsObj.results);
-    const lastTransactionIndex = transactions.findIndex((element) => element.transaction_id === credit_card.last_transaction_id);
-    if(lastTransactionIndex > -1) {
-        transactions.splice(lastTransactionIndex);
-    }
-    else {
-        console.log("Could not find last transaction id. Assuming all transactions are new.");
-    }
-    if(transactions.length == 0){
+
+    // ignore transactions that are already known
+    const newTransactions = transactions.filter(transaction => !credit_card.latest_transaction_ids.includes(transaction.transaction_id));
+
+    if(newTransactions.length == 0){
         return;
     }
-    transactions.reverse();
+
+    const latestTimestamp = newTransactions.reduce((memo, next) => 
+        new Date(next.timestamp) > new Date(memo.timestamp) ? next : memo
+    ).timestamp;
+
+    // clear stored transaction ids if there is a new latest timestamp (assume we don't get transactions from a previous day)
+    if(new Date(credit_card.last_transaction_date) < new Date(latestTimestamp)) {
+        credit_card.latest_transaction_ids = [];
+        credit_card.last_transaction_date = latestTimestamp;
+    }
+
+    // add transaction ids which match the latest timestamp to the stored array
+    const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
+    credit_card.latest_transaction_ids.push(...newTransactionIdsToRemember);
+
+    newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? 1 : -1);
+    
     let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
     discordUser.send("===="+credit_card.name+"====\nNew transactions added!")
     for(let transaction of transactions){
         transaction.amount = -Number.parseFloat(transaction.amount);
         await sendTransactionMessage(transaction,discordUser);
     }
-    config.users.find(u => u.discord_user_id === user.discord_user_id).credit_cards.find(b => b.credit_card_id === credit_card.credit_card_id).last_transaction_date = transactions[transactions.length-1].timestamp;
-    config.users.find(u => u.discord_user_id === user.discord_user_id).credit_cards.find(b => b.credit_card_id === credit_card.credit_card_id).last_transaction_id = transactions[transactions.length-1].transaction_id;
+
     fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
 }
 

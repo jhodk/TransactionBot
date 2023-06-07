@@ -20,7 +20,7 @@
           "name": "",
           "bank_account_id": "",
           "last_transaction_date": "2022-12-01T00:00:00Z",
-          "last_transaction_id": ""
+          "latest_transaction_ids": []
         }
       ],
       "credit_cards": []
@@ -39,7 +39,7 @@
           "name": "",
           "bank_account_id": "",
           "last_transaction_date": "2022-12-11T00:00:00Z",
-          "last_transaction_id": ""
+          "latest_transaction_ids": []
         }
       ],
       "credit_cards": [
@@ -47,7 +47,7 @@
           "name": "",
           "credit_card_id": "",
           "last_transaction_date": "",
-          "last_transaction_id": ""
+          "latest_transaction_ids": []
         }
       ]
     }
