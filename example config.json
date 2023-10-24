@@ -12,15 +12,16 @@
       "splitwise_API_token": "",
       "splitwise_group_id": "",
       "truelayer": {
-        "access_token": "",
-        "refresh_token": ""
+        "access_tokens": [],
+        "refresh_tokens": []
       },
       "bank_accounts": [
         {
           "name": "",
           "bank_account_id": "",
           "last_transaction_date": "2022-12-01T00:00:00Z",
-          "latest_transaction_ids": []
+          "latest_transaction_ids": [],
+          "truelayer_token_index": 0
         }
       ],
       "credit_cards": []
@@ -31,15 +32,16 @@
       "splitwise_API_token": "",
       "splitwise_group_id": "",
       "truelayer": {
-        "access_token": "",
-        "refresh_token": ""
+        "access_tokens": [],
+        "refresh_tokens": []
       },
       "bank_accounts": [
         {
           "name": "",
           "bank_account_id": "",
           "last_transaction_date": "2022-12-11T00:00:00Z",
-          "latest_transaction_ids": []
+          "latest_transaction_ids": [],
+          "truelayer_token_index": 0
         }
       ],
       "credit_cards": [
@@ -47,7 +49,8 @@
           "name": "",
           "credit_card_id": "",
           "last_transaction_date": "",
-          "latest_transaction_ids": []
+          "latest_transaction_ids": [],
+          "truelayer_token_index": 0
         }
       ]
     }

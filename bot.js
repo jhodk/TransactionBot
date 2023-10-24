@@ -14,6 +14,7 @@ const TransactionBot = new Client({
 	intents:[GatewayIntentBits.DirectMessages, GatewayIntentBits.DirectMessageReactions],
 	partials:[Partials.Message, Partials.Channel, Partials.Reaction]
 });
+const accessTokenEmojis = ["🔑", "🎹", "⚓"];
 let transactionPollingTimer;
 startBot();
 async function startBot() {
@@ -42,9 +43,9 @@ async function updateUserTransactions(user) {
     if(!transactions || transactions.error) {
         console.log(transactions.error);
         console.log(`error getting transaction for user ${user.name}, refreshing token...`);
-        let success = await APIRefreshToken(user);
+        let success = await APIRefreshToken(user, bank_account.truelayer_token_index);
         if(!success){
-            console.log(`Error with access token. Prompted user ${user.name} to generate new code`);
+            console.log(`Error with access token ${bank_account.truelayer_token_index}. Prompted user ${user.name} to generate new code`);
         }
         else{
             transactions = await APIGetBankAccountTransactions(user, bank_account);
@@ -61,9 +62,9 @@ async function updateUserTransactions(user) {
 
       if(!transactions || transactions.error) {
           console.log(`error getting transaction for user ${user.name}, refreshing token...`);
-          let success = await APIRefreshToken(user);
+          let success = await APIRefreshToken(user, credit_card.truelayer_token_index);
           if(!success){
-              console.log(`Error with access token. Prompted user ${user.name} to generate new code`);
+              console.log(`Error with access token ${credit_card.truelayer_token_index}. Prompted user ${user.name} to generate new code`);
           }
           else{
               transactions = await APIGetCreditCardTransactions(user, credit_card);
@@ -74,6 +75,16 @@ async function updateUserTransactions(user) {
           await handleCreditCardTransactions(transactions, user, credit_card);
       }
   }
+}
+
+function isTransactionAlreadyRecorded(transaction, bank_or_credit_account) {
+    return bank_or_credit_account.latest_transactions.some((knownTransaction) => 
+        knownTransaction.transaction_id === transaction.transaction_id ||
+        (
+            knownTransaction.description.trim() === transaction.description.trim() &&
+            knownTransaction.amount === -Number.parseFloat(transaction.amount)
+        )
+    );
 }
 
 async function handleBankAccountTransactions(transactionsObj, user, bank_account) {
@@ -88,7 +99,7 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
     const transactions = Array.from(transactionsObj.results);
 
     // ignore transactions that are already known
-    const newTransactions = transactions.filter(transaction => !bank_account.latest_transaction_ids.includes(transaction.transaction_id));
+    const newTransactions = transactions.filter(transaction => !isTransactionAlreadyRecorded(transaction, bank_account));
 
     if(newTransactions.length == 0){
         return;
@@ -100,13 +111,18 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
 
     // clear stored transaction ids if there is a new latest timestamp (assume we don't get transactions from a previous day)
     if(new Date(bank_account.last_transaction_date) < new Date(latestTimestamp)) {
-        bank_account.latest_transaction_ids = [];
+        bank_account.latest_transactions = [];
         bank_account.last_transaction_date = latestTimestamp;
     }
 
-    // add transaction ids which match the latest timestamp to the stored array
-    const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
-    bank_account.latest_transaction_ids.push(...newTransactionIdsToRemember);
+    // add transaction details which match the latest timestamp to the stored array
+    const newTransactionDetailsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp)
+    .map(transaction => ({
+        transaction_id: transaction.transaction_id,
+        description: transaction.description,
+        amount: -Number.parseFloat(transaction.amount),
+    }));
+    bank_account.latest_transactions.push(...newTransactionDetailsToRemember);
 
     newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? -1 : 1);
 
@@ -131,7 +147,7 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
     const transactions = Array.from(transactionsObj.results);
 
     // ignore transactions that are already known
-    const newTransactions = transactions.filter(transaction => !credit_card.latest_transaction_ids.includes(transaction.transaction_id));
+    const newTransactions = transactions.filter(transaction => !isTransactionAlreadyRecorded(transaction, credit_card));
 
     if(newTransactions.length == 0){
         return;
@@ -143,13 +159,18 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
 
     // clear stored transaction ids if there is a new latest timestamp (assume we don't get transactions from a previous day)
     if(new Date(credit_card.last_transaction_date) < new Date(latestTimestamp)) {
-        credit_card.latest_transaction_ids = [];
+        credit_card.latest_transactions = [];
         credit_card.last_transaction_date = latestTimestamp;
     }
 
-    // add transaction ids which match the latest timestamp to the stored array
-    const newTransactionIdsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp).map(transaction => transaction.transaction_id);
-    credit_card.latest_transaction_ids.push(...newTransactionIdsToRemember);
+    // add transaction details which match the latest timestamp to the stored array
+    const newTransactionDetailsToRemember = newTransactions.filter(transaction => transaction.timestamp === latestTimestamp)
+    .map(transaction => ({
+        transaction_id: transaction.transaction_id,
+        description: transaction.description,
+        amount: -Number.parseFloat(transaction.amount),
+    }));
+    credit_card.latest_transactions.push(...newTransactionDetailsToRemember);
 
     newTransactions.sort((a, b) => new Date(a.transaction_date) < new Date(b.transaction_date) ? -1 : 1);
     
@@ -176,7 +197,15 @@ async function sendTransactionMessage(transaction,user) {
     user.send({embeds: [embedMessage]});
 }
 
-async function APIRefreshToken(user) {
+function getBankAccountNamesForTokenIndex(user, token_index) {
+    return user.bank_accounts.filter((bank_account) => bank_account.truelayer_token_index === token_index).map((bank_account) => bank_account.name).join(",");
+}
+
+function getCreditCardNamesForTokenIndex(user, token_index) {
+    return user.credit_cards.filter((credit_card) => credit_card.truelayer_token_index === token_index).map((credit_card) => credit_card.name).join(",");
+}
+
+async function APIRefreshToken(user, token_index) {
     const url = `https://auth.truelayer.com/connect/token`;
     const options = {
       method: "POST",
@@ -185,7 +214,7 @@ async function APIRefreshToken(user) {
         grant_type: 'refresh_token',
         client_id: config.truelayer.app_client_id,
         client_secret: config.truelayer.app_client_secret,
-        refresh_token: user.truelayer.refresh_token
+        refresh_token: user.truelayer.refresh_tokens[token_index]
       })
     };
 
@@ -194,16 +223,16 @@ async function APIRefreshToken(user) {
     if(result.error) {
         console.log("ERROR: "+result.error);
         let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
-        discordUser.send("Access token has expired. Please visit this link to get new authorisation code. Send the code as a message then react to the code with the 🔑 emoji.");
+        discordUser.send(`Access token ${token_index} has expired.\n(bank accounts: ${getBankAccountNamesForTokenIndex(user, token_index)}\ncredit cards: ${getCreditCardNamesForTokenIndex(user, token_index)})\nPlease visit this link to get new authorisation code. Send the code as a message then react to the code with the ${accessTokenEmojis[token_index]} emoji.`);
         discordUser.send(`https://auth.truelayer.com/?response_type=code&client_id=${config.truelayer.app_client_id}&scope=info%20accounts%20balance%20cards%20transactions%20direct_debits%20standing_orders%20offline_access&redirect_uri=https://console.truelayer.com/redirect-page&providers=uk-ob-all%20uk-oauth-all`);
         return false;
     }
-    config.users.find(u => u.discord_user_id == user.discord_user_id).truelayer.access_token = result.access_token;
+    config.users.find(u => u.discord_user_id == user.discord_user_id).truelayer.access_tokens[token_index] = result.access_token;
     fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
     return true;
 }
 
-async function APIExchangeCodeForAccessToken(code, user) {
+async function APIExchangeCodeForAccessToken(code, user, token_index) {
     const url = `https://auth.truelayer.com/connect/token`;
     const options = {
       method: 'POST',
@@ -226,8 +255,8 @@ async function APIExchangeCodeForAccessToken(code, user) {
     }
 
     const configUser = user;
-    configUser.truelayer.access_token = result.access_token;
-    configUser.truelayer.refresh_token = result.refresh_token;
+    configUser.truelayer.access_tokens[token_index] = result.access_token;
+    configUser.truelayer.refresh_tokens[token_index] = result.refresh_token;
     fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
     return true;
 }
@@ -238,7 +267,7 @@ async function APIGetBankAccountTransactions(user, bank_account) {
     const options = {
       method: 'GET',
       headers: {Accept: 'application/json',
-              Authorization: 'Bearer '+user.truelayer.access_token,
+              Authorization: 'Bearer '+user.truelayer.access_tokens[bank_account.truelayer_token_index],
               'X-PSU-IP': config.truelayer.app_client_IP
       }
     }; 
@@ -253,7 +282,7 @@ async function APIGetCreditCardTransactions(user, credit_card) {
     const options = {
       method: 'GET',
       headers: {Accept: 'application/json',
-              Authorization: 'Bearer '+user.truelayer.access_token,
+              Authorization: 'Bearer '+user.truelayer.access_tokens[credit_card.truelayer_token_index],
               'X-PSU-IP': config.truelayer.app_client_IP
       }
     }; 
@@ -261,20 +290,6 @@ async function APIGetCreditCardTransactions(user, credit_card) {
     result = await result.json();    
     return result;
 }
-
-async function getBalance() {
-    const url = `https://api.truelayer.com/data/v1/accounts/${config.truelayer.bank_account_id}/balance`;
-    const options = {
-      method: 'GET',
-      headers: {Accept: 'application/json',
-              Authorization: 'Bearer '+config.truelayer.access_token,
-              'X-PSU-IP': config.truelayer.app_client_IP
-      }
-    }; 
-    let result = await fetch(url, options);
-    result = await result.json();    
-    return result;
-  }
 
 
 //handle reactions to messages
@@ -307,10 +322,11 @@ TransactionBot.on('messageReactionAdd', async (reaction, user) => {
             }
         }
         else {
-          if(reaction.emoji.name == "🔑") {
+          if(accessTokenEmojis.includes(reaction.emoji.name)) {
             const newCode = reaction.message.content;
-            user.send(`Requesting access using code: ${newCode}`);
-            const success = await APIExchangeCodeForAccessToken(newCode, config.users.find(u => u.discord_user_id === user.id));
+            const access_token_index = accessTokenEmojis.findIndex((emoji) => emoji == reaction.emoji.name);
+            user.send(`Requesting access for token with index ${access_token_index} using code: ${newCode}`);
+            const success = await APIExchangeCodeForAccessToken(newCode, config.users.find(u => u.discord_user_id === user.id), access_token_index);
             user.send(`${success ? "Success!" : "That didn't work. Try generating a new code in case it timed out or contact admin."}`);
             
             if(success) {
