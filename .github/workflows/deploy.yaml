@@ -1,0 +1,54 @@
+name: Deploy discord bot to server
+on: [workflow_dispatch]
+
+jobs: 
+    Deploy-Bot-Action:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v4
+
+          - name: executing remote ssh commands using ssh key
+            run: |
+                mkdir -p ~/.ssh
+                echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+                chmod 600 ~/.ssh/id_rsa
+                ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+          - name: copy files to remote server
+            run: |
+              scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -r ./* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/opt/TransactionBot/build
+
+          - name: install dependencies
+            run: |
+              ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+                cd /opt/TransactionBot/build
+                npm install
+              EOF
+
+          - name: replace existing directory
+            run: |
+              ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+                sudo systemctl stop transactionbot.service
+                cd /opt/TransactionBot
+                rm -rf deployed
+                mv build deployed
+                mkdir build
+              EOF
+
+          # - todo: separate config files
+          # - name: copy config files
+          #   run: |
+          #     ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+          #       cd /opt/TransactionBot
+          #       cp -r ./config/* deployed
+          #     EOF
+
+          - name: restart systemd process
+            run: |
+              ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+                sudo systemctl restart transactionbot.service
+              EOF
+
+          
+    

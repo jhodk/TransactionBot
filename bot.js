@@ -6,7 +6,7 @@ const {
     UserContextMenuCommandInteraction
 } = require('discord.js');
 const util = require('util');
-const config = require('./config.json');
+const config = require('../config/config.json');
 const moment = require('moment');
 const fetch = require('node-fetch');
 const fs = require('fs');
