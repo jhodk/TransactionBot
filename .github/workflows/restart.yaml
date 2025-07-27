@@ -1,0 +1,20 @@
+name: Restart discord bot
+on: [workflow_dispatch]
+
+jobs: 
+    Restart-Discord-Bot-Action:
+        runs-on: ubuntu-latest
+        steps:
+          - name: executing remote ssh commands using ssh key
+            run: |
+                mkdir -p ~/.ssh
+                echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+                chmod 600 ~/.ssh/id_rsa
+                ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+          - name: restart systemd process
+            run: |
+              ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+                sudo systemctl restart transactionbot.service
+              EOF
+    
