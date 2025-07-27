@@ -6,8 +6,10 @@ const {
     UserContextMenuCommandInteraction
 } = require('discord.js');
 const util = require('util');
-
-const configPath = "../config/config.json";
+const path = require('path');
+const configPath = process.env.CONFIG_PATH_RELATIVE_TO_WORKING_DIR 
+    ? path.resolve(process.cwd(), process.env.CONFIG_PATH_RELATIVE_TO_WORKING_DIR)
+    : "./config.json";
 const config = require(configPath);
 const moment = require('moment');
 const fetch = require('node-fetch');
