@@ -6,7 +6,9 @@ const {
     UserContextMenuCommandInteraction
 } = require('discord.js');
 const util = require('util');
-const config = require('../config/config.json');
+
+const configPath = "../config/config.json";
+const config = require(configPath);
 const moment = require('moment');
 const fetch = require('node-fetch');
 const fs = require('fs');
@@ -132,7 +134,7 @@ async function handleBankAccountTransactions(transactionsObj, user, bank_account
         await sendTransactionMessage(transaction,discordUser);
     }
     
-    fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
+    fs.writeFileSync(configPath, JSON.stringify(config,null,2));
 }
 
 async function handleCreditCardTransactions(transactionsObj, user, credit_card) {
@@ -181,7 +183,7 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
         await sendTransactionMessage(transaction,discordUser);
     }
 
-    fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
+    fs.writeFileSync(configPath, JSON.stringify(config,null,2));
 }
 
 async function sendTransactionMessage(transaction,user) {
@@ -228,7 +230,7 @@ async function APIRefreshToken(user, token_index) {
         return false;
     }
     config.users.find(u => u.discord_user_id == user.discord_user_id).truelayer.access_tokens[token_index] = result.access_token;
-    fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
+    fs.writeFileSync(configPath, JSON.stringify(config,null,2));
     return true;
 }
 
@@ -257,7 +259,7 @@ async function APIExchangeCodeForAccessToken(code, user, token_index) {
     const configUser = user;
     configUser.truelayer.access_tokens[token_index] = result.access_token;
     configUser.truelayer.refresh_tokens[token_index] = result.refresh_token;
-    fs.writeFileSync('./config.json', JSON.stringify(config,null,2));
+    fs.writeFileSync(configPath, JSON.stringify(config,null,2));
     return true;
 }
 
