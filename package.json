@@ -1,4 +1,9 @@
 {
+  "name": "transaction-bot",
+  "version": "1.0.0",
+  "description": "Sends your bank transactions on discord and lets you add them to splitwise",
+  "author": "jhodk",
+  "license": "UNLICENSED",
   "dependencies": {
     "discord.js": "^14.3.0",
     "moment": "^2.29.4",
