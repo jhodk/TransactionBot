@@ -351,7 +351,7 @@ async function makeSplitTrackerEntry(message, user) {
         let month = months.indexOf(dateArr[2])+1;
         if(month < 10) {month = "0"+month;}
         let year = dateArr[3];
-        let datetime = `${day}/${month}/${year} 00:00:00`;
+        let datetime = `${year}-${month}-${day}T00:00:00.000Z`;
         let cost = message.data.title.substring(1);
         let description = message.data.description.replace("\n","/");
         return await APISplitTrackerEntry(cost, description, datetime, user);
