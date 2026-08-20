@@ -313,7 +313,7 @@ TransactionBot.on('messageReactionAdd', async (reaction, user) => {
                 reaction.message.delete();
             }
             else if(reaction.emoji.name == "🤑" && reaction.message.embeds){
-                const success = await makeSplitwiseEntry(reaction.message, config.users.find(u => u.discord_user_id == user.id));
+                const success = await makeSplitTrackerEntry(reaction.message, config.users.find(u => u.discord_user_id == user.id));
                 if(success) {
                     reaction.message.react("✅");
                 }
@@ -341,7 +341,7 @@ TransactionBot.on('messageReactionAdd', async (reaction, user) => {
     }
 });
 
-async function makeSplitwiseEntry(message, user) {
+async function makeSplitTrackerEntry(message, user) {
     if(message.embeds[0]){
         message = message.embeds[0];
         const dateArr = message.data.author.name.split(" "); //Monday 22nd Aug 2022
@@ -354,24 +354,51 @@ async function makeSplitwiseEntry(message, user) {
         let datetime = `${day}/${month}/${year} 00:00:00`;
         let cost = message.data.title.substring(1);
         let description = message.data.description.replace("\n","/");
-        return await APISplitwiseEntry(cost, description, datetime, user);
+        return await APISplitTrackerEntry(cost, description, datetime, user);
     }
 }
 
-async function APISplitwiseEntry(cost, description, datetime, user) {
-    const url = `https://secure.splitwise.com/api/v3.0/create_expense`;
+// Paywalled
+// async function APISplitwiseEntry(cost, description, datetime, user) {
+//     const url = `https://secure.splitwise.com/api/v3.0/create_expense`;
+//     const options = {
+//       method: "POST",
+//       headers: {Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer '+user.splitwise_API_token},
+//       body: JSON.stringify({
+//         cost: cost,
+//         description: description,
+//         date: datetime,
+//         repeat_interval: "never",
+//         currency_code: "GBP",
+//         category_id: guess_category(description), //general category
+//         group_id: user.splitwise_group_id,
+//         split_equally: true
+//       })
+//     };
+//     let result = await fetch(url, options);
+//     result = await result.json();
+
+//     if(result.error){
+//         console.log("ERROR: "+result.error);
+//         let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
+//         discordUser.send("There was an error creating the splitwise expense.");
+//         return false;
+//     }
+//     return true;
+// }
+
+async function APISplitTrackerEntry(cost, description, datetime, user) {
+    const url = config.split_tracker_url;
     const options = {
       method: "POST",
-      headers: {Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer '+user.splitwise_API_token},
+      headers: {Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer '+config.split_tracker_auth_token},
       body: JSON.stringify({
-        cost: cost,
+        payerId: user.split_tracker_user_id,
+        createdById: user.split_tracker_user_id,
         description: description,
+        amount: cost,
+        categoryId: guess_category(description),
         date: datetime,
-        repeat_interval: "never",
-        currency_code: "GBP",
-        category_id: guess_category(description), //general category
-        group_id: user.splitwise_group_id,
-        split_equally: true
       })
     };
     let result = await fetch(url, options);
@@ -395,7 +422,7 @@ function guess_category(e) {
     null != e.match(/\bparking\b|\bparken\b|\bparkimetro\b/) ? 9 :
     null != e.match(/\binsurance\b|\brenters\b|\bversicherung\b|\bseguro\b/) ? 10 :
     null != e.match(/\bnetflix\b|\butility\b|\bhulu\b|\bac\b/) ? 11 :
-    null != e.match(/\bgroceries\b|\bmilk\b|\bgrocery\b|\bchicken\b|\bsafeway\b|\bbread\b|\beggs\b|\bstores?\b|\bmarket\b|\bpatel\b|\bbaza|\bcurd\b|\bveg\b|\bvegetables\b|\bkroger\b|\bbazz\b|\bbaaz|\bchips\b|\boil\b|\bshop\b|\bjuice\b|\btesco\b|\bfoods\b|\bapna\b|\bveggies\b|\bwhole\b|\bmart\b|\byogurt\b|\baldi\b|\bonions?\b|\bpastas?\b|\bshoprite\b|\bbasket\b|\bhoney\b|\bbananas?\b|\bhalal\b|\bsalt\b|\bbutter\b|\bjoes\b|\beggs?\b|\bapples?\b|\bmeijer\b|\bgarlic\b|\bmeyer\b|\bsupermarket\b|\bjoe's\b|\bpotatos?\b|\bicc\b|\bginger\b|\bolives?\b|\bcheese\b|\bstrawberry\b|\bcereal\b|\bwegmans\b|\bmutton\b|\bpopcorn\b|\bturkeys?\b|\bfarmers\b|\bwinco\b|\bbuttermilk\b|\bthanksgiving\b|\bfruits?\b|\bbeans\b|\bcola\b|\bwholefoods\b|\bwhole\bfoods\b|\bcream\b|\bcurd\b|\bdahi\b|\btomato\b|\bmaggi\b|\batta\b|\bgrofers\b|\bsabzi\b|\bcoconut\b|\blemon\b|\bvim\b|\bsurf\b|\bpoha\b|\bbigbasket\b|\bbig basket\b|\bdudh\b|\bsoda\b|\bghee\b|\bwatermelon\b|\btamatar\b|\bcold drink|\bnimbu pani\b|\btata fresh\b|\bstar bazar\b|\bstar bazaar\b|\bstar bazzar\b|\bsainsbury|\brewe\b|\blidl\b|\bnetto\b|\bedeka\b|\bkaufland\b|\bflotte\b|\balnatura\b|\bspar\b|\bspesa\b|\blebensmittel\b|\bmarktkauf\b|\bmirchi\b|\bcoles\b|\bcarrefour\b|\beinkauf\b|\beink\xe4ufe\b|\bb\xe4cker\b|\bbaecker\b|\bmilch\b|\beinkaufen\b|\bbr\xf6tchen\b|\bsupermarkt\b|\bbrot\b|\bwasser\b|\bkarotte\b|\bmarkt\b|\bk\xe4se\b|\bobst\b|\bfleisch\b|\boliven\xf6l\b|\bmetzger\b|\bgem\xfcse\b|\beier\b|\bzwiebeln\b|\bpilze\b|\berdbeeren\b|\bessig\b|\bcompras?\b|\bmercadona\b|\bmercado\b|\bsupermercado\b|\bfrutas?\b|\bpollos?\b|\bleche\b|\bmerca\b|\bcarnes?\b|\baceite\b|\bfruteria\b|\borange\b|\bquesos?\b|\bhuevos?\b|\bbolsas\b|\bverduras?\b|\barroz\b|\bfruter\xedas?\b|\bcarnicer\xedas?\b|\bhielos?\b|\bnespresso\b|\bfruitas?\b|\bbodegas?\b|\bhelados?\b|\bsnacks?\b|\btartas?\b|\bpapas?\b|\bconsum\b|\beroski\b|\balcampo\b|\bhipercor\b|\bgadis\b|\bcaprabo\b|\bveritas\b|\bbonarea\b|\bsainsburys\b|\bsupersol\b|\bzumos?\b|\bsupercor\b|\bcremas?\b|\bpescados?\b|\bwaitrose\b|\bpublix\b/) ? 12 :
+    null != e.match(/\byour-saving\.com\b\bgroceries\b|\bmilk\b|\bgrocery\b|\bchicken\b|\bsafeway\b|\bbread\b|\beggs\b|\bstores?\b|\bmarket\b|\bpatel\b|\bbaza|\bcurd\b|\bveg\b|\bvegetables\b|\bkroger\b|\bbazz\b|\bbaaz|\bchips\b|\boil\b|\bshop\b|\bjuice\b|\btesco\b|\bfoods\b|\bapna\b|\bveggies\b|\bwhole\b|\bmart\b|\byogurt\b|\baldi\b|\bonions?\b|\bpastas?\b|\bshoprite\b|\bbasket\b|\bhoney\b|\bbananas?\b|\bhalal\b|\bsalt\b|\bbutter\b|\bjoes\b|\beggs?\b|\bapples?\b|\bmeijer\b|\bgarlic\b|\bmeyer\b|\bsupermarket\b|\bjoe's\b|\bpotatos?\b|\bicc\b|\bginger\b|\bolives?\b|\bcheese\b|\bstrawberry\b|\bcereal\b|\bwegmans\b|\bmutton\b|\bpopcorn\b|\bturkeys?\b|\bfarmers\b|\bwinco\b|\bbuttermilk\b|\bthanksgiving\b|\bfruits?\b|\bbeans\b|\bcola\b|\bwholefoods\b|\bwhole\bfoods\b|\bcream\b|\bcurd\b|\bdahi\b|\btomato\b|\bmaggi\b|\batta\b|\bgrofers\b|\bsabzi\b|\bcoconut\b|\blemon\b|\bvim\b|\bsurf\b|\bpoha\b|\bbigbasket\b|\bbig basket\b|\bdudh\b|\bsoda\b|\bghee\b|\bwatermelon\b|\btamatar\b|\bcold drink|\bnimbu pani\b|\btata fresh\b|\bstar bazar\b|\bstar bazaar\b|\bstar bazzar\b|\bsainsbury|\brewe\b|\blidl\b|\bnetto\b|\bedeka\b|\bkaufland\b|\bflotte\b|\balnatura\b|\bspar\b|\bspesa\b|\blebensmittel\b|\bmarktkauf\b|\bmirchi\b|\bcoles\b|\bcarrefour\b|\beinkauf\b|\beink\xe4ufe\b|\bb\xe4cker\b|\bbaecker\b|\bmilch\b|\beinkaufen\b|\bbr\xf6tchen\b|\bsupermarkt\b|\bbrot\b|\bwasser\b|\bkarotte\b|\bmarkt\b|\bk\xe4se\b|\bobst\b|\bfleisch\b|\boliven\xf6l\b|\bmetzger\b|\bgem\xfcse\b|\beier\b|\bzwiebeln\b|\bpilze\b|\berdbeeren\b|\bessig\b|\bcompras?\b|\bmercadona\b|\bmercado\b|\bsupermercado\b|\bfrutas?\b|\bpollos?\b|\bleche\b|\bmerca\b|\bcarnes?\b|\baceite\b|\bfruteria\b|\borange\b|\bquesos?\b|\bhuevos?\b|\bbolsas\b|\bverduras?\b|\barroz\b|\bfruter\xedas?\b|\bcarnicer\xedas?\b|\bhielos?\b|\bnespresso\b|\bfruitas?\b|\bbodegas?\b|\bhelados?\b|\bsnacks?\b|\btartas?\b|\bpapas?\b|\bconsum\b|\beroski\b|\balcampo\b|\bhipercor\b|\bgadis\b|\bcaprabo\b|\bveritas\b|\bbonarea\b|\bsainsburys\b|\bsupersol\b|\bzumos?\b|\bsupercor\b|\bcremas?\b|\bpescados?\b|\bwaitrose\b|\bpublix\b/) ? 12 :
     null != e.match(/\bdinner\b|\blunch\b|\bindian\b|\bbreakfast\b|\bsubway\b|\btea\b|\bgarden\b|\btaco\b|\bthai\b|\bstarbucks\b|\bchinese\b|\bchipotle\b|\bcurry\b|\bbombay\b|\bchat\b|\bbuffet\b|\bihop\b|\bsandwich\b|\bdiner\b|\btiffin\b|\bbfast\b|\btacos\b|\btavern\b|\bbagel\b|donalds\b|\bdunkin\b|\bbrunch\b|\bgelato\b|\bdonuts\b|\bwendys\b|\bkfc\b|\bpanera\b|\bdominoes\b|\bdomino|\bpapa\b|\bsushi\b|\bsabji\b|\bbiryani\b|\bdosa\b|\bcurries\b|\broti\b|\bshake\b|\bchai\b|\blassi\b|\blasi\b|\btiffin\b|\bmcd|\bsamosa\b|\bparatha\b|\bbiriyani\b|\bcanteen\b|\bmomo\b|\bcold coffee\b|\bchayoos\b|\bpani puri\b|\bvapiano\b|\bessen\b|\bfr\xfchst\xfcck\b|\bkaffe\b|\bkaffee\b|\babendessen\b|\bd\xf6ner\b|\bdoner\b|\bmittagessen\b|\bmittag\b|\bmensa\b|\bsalat\b|\bkuchen\b|\bpommes\b|\btee\b|\babend\b|\bnudeln\b|\bitaliener\b|\bcomidas?\b|\bcenas?\b|\bdesayunos?\b|\bpizzas?\b|\bcafes?\b|\bdinners?\b|\bburgers?\b|\bcoffees?\b|\bcaf\xe9s?\b|\balmuerzos?\b|\bbreakfast\b|\btapas\b|\brestaurantes?\b|\bmcdonalds?\b|\bburguers?\b|\brestaurants?\b|\bpaella\b|\bpatatas?\b|\bbbq\b|\bmcdonald's?\b|\bhamburguesas?\b|\brestos?\b|\bchurros?\b|\bkebabs?\b|\bcrepes?\b|\bdominos\b|\bbarbacoa\b|\bcenitas?\b|\blunches\b|\bpropinas?\b|\bmontaditos?\b|\bsopar\b|\bjantar\b|\btelepizzas?\b|\bfaborit\b|\budon\b|\balmo\xe7o\b|\bpinchos?\b|\bpintxos?\b|\bbocatas?\b|\bchupitos?\b|\bmerienda\b|\bchiringuito\b/) ? 13 :
     null != e.match(/\bwalmart\b|\bcostco\b|\btarget\b|\bpaper\b|\btoilet\b|\bdish\b|\bdollar\b|\bkitchen\b|\bcvs\b|\btide\b|\btowels\b|\bdetergent\b|\bwalgreens\b|\bliquid\b|\btp\b|\bsam's\b|\btoothpaste\b|\bbathroom\b|\bbath\b|\bvacuum\b|\bshampoo\b|\bhousehold\b|\bwal-mart\b|\bshower\b|\btissue\b|\bfilter\b|\bfoil\b|\bgloves\b|\bdmart\b|\bhandwash\b|\brossmann\b|\bklopapier\b|\btoilettenpapier\b|\bm\xfcllbeutel\b|\blimpiezas?\b|\bdetergentes?\b|\blavavajillas?\b|\bneteja\b|\bsuavizante\b/) ? 14 :
     null != e.match(/\bcar\b|\bauto\b|\bzipcar\b|\bzip\b|\benterprise\b|\bmaut\b|\bmietwagen\b|\bmaut\b|\bcoche\b|\bblabla\b/) ? 15 :
@@ -429,7 +456,7 @@ function guess_category(e) {
     null != e.match(/\bwater\b/) ? null != e.match(/\bbottle\b|\bcan|mineral|sparkling|seltzer/) ? 12 :
     (e.match(/bill|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/),7) :
     null != e.match(/\bconservice/) ? 11 :
-    null != e.match(/\bheat\b|\bheating\b|\bcylinder\b|\bcooking gas\b/) ? 6:
+    null != e.match(/\bheating\b|\bcylinder\b|\bcooking gas\b/) ? 6:
     18;
 }
 

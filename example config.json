@@ -1,5 +1,7 @@
 {
   "discord_bot_token": "",
+  "split_tracker_url": "",
+  "split_tracker_auth_token": "",
   "truelayer": {
     "app_client_id": "",
     "app_client_IP": "",
@@ -11,6 +13,7 @@
       "discord_user_id": "",
       "splitwise_API_token": "",
       "splitwise_group_id": "",
+      "split_tracker_user_id": 1,
       "truelayer": {
         "access_tokens": [],
         "refresh_tokens": []
@@ -31,6 +34,7 @@
       "discord_user_id": "",
       "splitwise_API_token": "",
       "splitwise_group_id": "",
+      "split_tracker_user_id": 2,
       "truelayer": {
         "access_tokens": [],
         "refresh_tokens": []
