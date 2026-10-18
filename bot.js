@@ -180,7 +180,7 @@ async function handleCreditCardTransactions(transactionsObj, user, credit_card) 
     
     let discordUser = await TransactionBot.users.fetch(user.discord_user_id);
     discordUser.send("===="+credit_card.name+"====\nNew transactions added!")
-    for(let transaction of transactions){
+    for(let transaction of newTransactions){
         transaction.amount = -Number.parseFloat(transaction.amount);
         await sendTransactionMessage(transaction,discordUser);
     }
